@@ -22,8 +22,8 @@ use Hash::Merge   ();
 
     my $info = $conf->param('db.1');
     say $info->{conn}; # outputs dbi:mysql:dbname=foobar
-    say $info->{user}; # outputs value of $ENV{MYAPP_DB_1_USER}
-    say $info->{pass}; # outputs value of $ENV{MYAPP_DB_1_PASS}
+    say $info->{user}; # outputs the value of $ENV{MYAPP_DB_1_USER}
+    say $info->{pass}; # outputs the value of $ENV{MYAPP_DB_1_PASS}
 
     likewise ...
 
@@ -149,14 +149,6 @@ form of a scalar, arrayref or hashref.
 
     my $item = $self->param($key);
     my $item = $self->param($key => $value);
-
-    $self->param('a.b');
-    $self->param('a.b.c');
-    $self->param('a.b.c.1');
-    $self->param('a.b.c.2');
-    $self->param('z.x.y.1.a');
-    $self->param('z.x.y.2.a');
-    $self->param('z.x.y.3.a');
 
 =cut
 
