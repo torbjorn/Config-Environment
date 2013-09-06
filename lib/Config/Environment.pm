@@ -31,8 +31,8 @@ use Hash::Merge   ();
 
     creates the following environment variables and assignments
 
-    $ENV{MYAPP_SERVER_NODE_1} = '10.10.10.02'
-    $ENV{MYAPP_SERVER_NODE_2} = '10.10.10.03'
+    $ENV{MYAPP_SERVER_NODE_1} = '10.10.10.02';
+    $ENV{MYAPP_SERVER_NODE_2} = '10.10.10.03';
 
     ... and the configuration can be retrieved using any of the following
 
@@ -51,10 +51,8 @@ Config::Environment is an interface for managing application configuration using
 environment variables as a backend. Using environment variables as a means of
 application configuration is a great way of controlling which parts of your
 application configuration gets hard-coded and shipped with your codebase (and
-which parts do not). Additionally, application configuration can be set at the
-system, user, and/or application level and easily overridden by using
-environment variables. Please note that variable names are handled in a
-case-insensative manner.
+which parts do not). Using environment variables, application configuration can
+be set at the system, user, and/or application levels and easily overridden.
 
 =cut
 
