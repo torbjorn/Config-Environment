@@ -59,15 +59,29 @@ be set at the system, user, and/or application levels and easily overridden.
 sub BUILDARGS {
     my ($class, @args) = @_;
 
-    unshift @args, 'domain' if $args[0] && !$args[1];
+    unshift @args, 'domain' if $args[0] && $#args == 0;
     return {@args};
 }
 
 sub BUILD {
     my ($self) = @_;
 
-    return $self->load(\%ENV);
+    return $self->load({%ENV}) if $self->autoload;
 }
+
+=attribute autoload
+
+The autoload attribute contains a boolean value which determines whether
+the global ENV hash will be sourced during instantiation. This attribute is
+set to true by default.
+
+=cut
+
+has autoload => (
+    is       => 'ro',
+    required => 0,
+    default  => 1
+);
 
 =attribute domain
 
@@ -79,6 +93,20 @@ to differentiate between other environment variables.
 has domain => (
     is       => 'ro',
     required => 1
+);
+
+=attribute override
+
+The override attribute contains a boolean value which determines whether
+parameters corresponding to an existing environment variable can have it's
+value overridden. This attribute is set to true by default.
+
+=cut
+
+has override => (
+    is       => 'ro',
+    required => 0,
+    default  => 1
 );
 
 =method load
@@ -127,7 +155,7 @@ sub load {
 
         # re-setting ... re-formatting
         while (my($key, $val) = each(%{$hash})) {
-            $ENV{uc join '_', $self->domain, split /\./, $key} = $val;
+            $ENV{$self->to_env_key($key)} = $val;
         }
     }
 
@@ -153,9 +181,18 @@ form of a scalar, arrayref or hashref.
 sub param {
     my ($self, $key, $val) = @_;
 
+    return unless defined $key;
+
+    my $dom = $self->domain;
+
+    $key = $self->to_dom_key($key);
+    $key =~ s/^$dom(\.)?//;
+
     if (@_ > 2) {
-        my $new = uc join '_', $self->domain, split /\./, $key;
-        $self->load({$new => $val}); # load actually re-sets env vars
+        unless (exists $ENV{$self->to_env_key($key)} && ! $self->override) {
+            $self->load({$self->to_env_key($key) => $val});
+            $self->{registry}{env}{$key} = $val;
+        }
     }
 
     if (exists $self->{registry}{env}{$key}) {
@@ -216,11 +253,60 @@ sub environment {
     my $map = Hash::Flatten->new->flatten($self->{registry}{map});
 
     for my $key (keys %{$map}) {
-        $map->{uc join '_', $self->domain, split /\./, $key}
-            = delete $map->{$key};
+        $map->{$self->to_env_key($key)} = delete $map->{$key};
     }
 
     return $map;
+}
+
+=method subdomain
+
+The subdomain method returns a copy of the existing class instance modifying the
+domain for easier access to long/deep keys.
+
+    my $db  = $self->subdomain('db');
+    my $db1 = $db->subdomain('1');
+
+    $db1->param('conn' => $connstring);
+    $db1->param('user' => $username);
+    $db1->param('pass' => $password);
+
+=cut
+
+sub subdomain {
+    my ($self, $key) = @_;
+    my $dom  = $self->domain;
+    my $copy = ref($self)->new(
+        autoload => 0,
+        override => $self->override,
+        domain   => $dom
+    );
+
+    ($copy->{subdomain} = $self->to_dom_key($key)) =~ s/^$dom(\.)?//;
+    $copy->{registry} = $self->{registry};
+
+    return $copy;
+}
+
+sub to_env_key {
+    my ($self, $key) = @_;
+    my $dom = $self->domain;
+
+    $key =~ s/^$dom//;
+
+    return uc join '_', $dom, split /\./, $key
+}
+
+sub to_dom_key {
+    my ($self, $key) = @_;
+    my $dom = $self->domain;
+
+    $key =~ s/^$dom//;
+
+    my @prefix = ($dom);
+    push @prefix, $self->{subdomain} if defined $self->{subdomain};
+
+    return lc join '.', @prefix, split /_/, $key;
 }
 
 1;
