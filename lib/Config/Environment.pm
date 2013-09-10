@@ -65,7 +65,9 @@ sub BUILDARGS {
 
 sub BUILD {
     my ($self) = @_;
+    my $dom = lc $self->domain;
 
+    $self->{snapshot} = { map {$_ => $ENV{$_}} grep { /^$dom\_/i } keys %ENV };
     return $self->load({%ENV}) if $self->autoload;
 }
 
@@ -95,6 +97,34 @@ has domain => (
     required => 1
 );
 
+=attribute lifecycle
+
+The lifecycle attribute contains a boolean value which if true restricts any
+environment variables changes to life of the class instance. This attribute
+is set to false by default.
+
+=cut
+
+has lifecycle => (
+    is       => 'ro',
+    required => 0,
+    default  => 0
+);
+
+=attribute mirror
+
+The mirror attribute contains a boolean value which if true copies any
+configuration assignments to the corresponding environment variables. This
+attribute is set to true by default.
+
+=cut
+
+has mirror => (
+    is       => 'rw',
+    required => 0,
+    default  => 1
+);
+
 =attribute override
 
 The override attribute contains a boolean value which determines whether
@@ -104,7 +134,7 @@ value overridden. This attribute is set to true by default.
 =cut
 
 has override => (
-    is       => 'ro',
+    is       => 'rw',
     required => 0,
     default  => 1
 );
@@ -153,9 +183,10 @@ sub load {
             $map => Hash::Flatten->new->unflatten($hash)
         );
 
-        # re-setting ... re-formatting
-        while (my($key, $val) = each(%{$hash})) {
-            $ENV{$self->to_env_key($key)} = $val;
+        if ($self->mirror) {
+            while (my($key, $val) = each(%{$hash})) {
+                $ENV{$self->to_env_key($key)} = $val;
+            }
         }
     }
 
@@ -261,8 +292,8 @@ sub environment {
 
 =method subdomain
 
-The subdomain method returns a copy of the existing class instance modifying the
-domain for easier access to long/deep keys.
+The subdomain method returns a copy of the class instance with a modified domain
+reference for easier access to nested configuration keys.
 
     my $db  = $self->subdomain('db');
     my $db1 = $db->subdomain('1');
@@ -277,24 +308,17 @@ sub subdomain {
     my ($self, $key) = @_;
     my $dom  = $self->domain;
     my $copy = ref($self)->new(
-        autoload => 0,
-        override => $self->override,
-        domain   => $dom
+        autoload  => 0,
+        override  => $self->override,
+        lifecycle => $self->lifecycle,
+        mirror    => $self->mirror,
+        domain    => $dom
     );
 
     ($copy->{subdomain} = $self->to_dom_key($key)) =~ s/^$dom(\.)?//;
     $copy->{registry} = $self->{registry};
 
     return $copy;
-}
-
-sub to_env_key {
-    my ($self, $key) = @_;
-    my $dom = $self->domain;
-
-    $key =~ s/^$dom//;
-
-    return uc join '_', $dom, split /\./, $key
 }
 
 sub to_dom_key {
@@ -307,6 +331,27 @@ sub to_dom_key {
     push @prefix, $self->{subdomain} if defined $self->{subdomain};
 
     return lc join '.', @prefix, split /_/, $key;
+}
+
+sub to_env_key {
+    my ($self, $key) = @_;
+    my $dom = $self->domain;
+
+    $key =~ s/^$dom//;
+
+    return uc join '_', $dom, split /\./, $key
+}
+
+sub DESTROY {
+    my ($self) = @_;
+
+    if ($self->lifecycle) {
+        my $environment = $self->environment;
+        my $snapshot    = $self->{snapshot};
+
+        delete $ENV{$_} for grep { ! exists $snapshot->{$_} } keys %{$environment};
+        $ENV{$_} = $snapshot->{$_} for keys %{$snapshot};
+    }
 }
 
 1;
