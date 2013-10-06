@@ -3,12 +3,12 @@ Changes from 2012-10-06 00:00:00 +0000 to present.
 ==================================================
 
 ---------------------------------------------
-version 0.000005 at 2013-10-06 04:11:04 +0000
+version 0.000005 at 2013-10-06 04:11:48 +0000
 ---------------------------------------------
 
-  Change: 646dd57d157092788f50de858d7a1de887576524
+  Change: bf8431b14cf12ddf6a23d68d45fa3d86a3f3f8f3
   Author: Al Newkirk <anewkirk@ana.io>
-  Date : 2013-10-06 00:10:54 +0000
+  Date : 2013-10-06 00:11:29 +0000
 
     added better handling of parameter assignment and updated the
     documentation 
