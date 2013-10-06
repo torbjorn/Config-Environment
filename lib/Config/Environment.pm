@@ -142,9 +142,15 @@ has override => (
 =method load
 
 The load method expects a hashref which it parses and generates environment
-variables from whether the exist or not and registers the formatted environment
+variables from whether they exist or not and registers the formatted environment
 structure. This method is called automatically on instantiation using the global
 ENV hash as an argument.
+
+    my $hash = {
+        APP_MODE => 'development',
+        APP_USER => 'vagrant',
+        APP_PORT => 9000
+    };
 
     $self->load($hash);
 
@@ -207,6 +213,11 @@ form of a scalar, arrayref or hashref.
     my $item = $self->param($key);
     my $item = $self->param($key => $value);
 
+    # load parsed data from another configuration source, e.g. a config file
+    while (my($key, $val) = each(%$configuration) {
+        $self->param($key => $val);
+    }
+
 =cut
 
 sub param {
@@ -220,9 +231,14 @@ sub param {
     $key =~ s/^$dom(\.)?//;
 
     if (@_ > 2) {
-        unless (exists $ENV{$self->to_env_key($key)} && ! $self->override) {
-            $self->load({$self->to_env_key($key) => $val});
-            $self->{registry}{env}{$key} = $val;
+        my $pairs = Hash::Flatten::flatten({$key => $val});
+        while (my($key, $val) = each(%{$pairs})) {
+            $key =~ s/(\w):(\d)/"$1.".($2+1)/gpe;
+            $key =~ s/\\//g;
+            unless (exists $ENV{$self->to_env_key($key)} && ! $self->override) {
+                $self->load({$self->to_env_key($key) => $val});
+                $self->{registry}{env}{$key} = $val;
+            }
         }
     }
 
