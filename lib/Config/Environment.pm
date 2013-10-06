@@ -260,7 +260,7 @@ sub param {
                 return undef;
             }
         }
-        return $self->{registry}{env}{$key} = $node;
+        return $node;
     }
 
     return;
