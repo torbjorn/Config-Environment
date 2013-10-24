@@ -304,6 +304,7 @@ sub params {
             while (my ($key, $value) = each%{$keys[0]}) {
                 $self->param($key, $value);
             }
+            return;
         }
     }
 
