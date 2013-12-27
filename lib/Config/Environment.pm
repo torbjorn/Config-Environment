@@ -374,7 +374,10 @@ specific to the instantiated object's domain and instance.
 
 sub environment {
     my ($self) = @_;
-    my $map = Hash::Flatten->new->flatten($self->{registry}{map});
+    my $map = Hash::Merge::Simple->merge(
+        Hash::Flatten->new->flatten($self->{registry}{map}),
+        Hash::Flatten->new->flatten($self->stash),
+    );
 
     for my $key (keys %{$map}) {
         $map->{$self->to_env_key($key)} = delete $map->{$key};
