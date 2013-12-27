@@ -147,6 +147,19 @@ has override => (
     default  => 1
 );
 
+=attribute stash
+
+The stash attribute contains a hashref which can be used to store arbitrary data
+which does not undergo parsing and which can be accessed using the param method.
+
+=cut
+
+has stash => (
+    is       => 'ro',
+    required => 0,
+    default  => sub {{}}
+);
+
 =method load
 
 The load method expects a hashref which it parses and generates environment
@@ -190,7 +203,7 @@ sub load {
             $hash = Hash::Flatten->new->flatten($value);
 
             for my $refkey (keys %{$hash}) {
-                (my $newref = $refkey) =~ s/(\w):(\d)/"$1.".($2+1)/gpe;
+                (my $newref = $refkey) =~ s/(\w):(\d+)/"$1.".($2+1)/gpe;
                 $hash->{lc "$key.$newref"} = delete $hash->{$refkey};
             }
         }
@@ -243,38 +256,75 @@ sub param {
     if (@_ > 2) {
         my $pairs = Hash::Flatten::flatten({$key => $val});
         while (my($key, $val) = each(%{$pairs})) {
-            $key =~ s/(\w):(\d)/"$1.".($2+1)/gpe;
+            $key =~ s/(\w):(\d+)/"$1.".($2+1)/gpe;
             $key =~ s/\\//g;
             unless (exists $ENV{$self->to_env_key($key)} && ! $self->override) {
-                print $key, "\n";
                 $self->load({$self->to_env_key($key) => $val});
                 $self->{registry}{env}{$key} = $val;
             }
         }
     }
 
+    my $result;
+
+    # env lookup
     if (exists $self->{registry}{env}{$key}) {
-        return $self->{registry}{env}{$key};
+        $result = $self->{registry}{env}{$key};
     }
-    else {
+
+    # env map walk
+    if (!$result) {
         my $node  = $self->{registry}{map};
         my @steps = split /\./, $key;
         for (my $i=0; $i<@steps; $i++) {
             my $step = $steps[$i];
             if (exists $node->{$step}) {
                 if ($i<@steps && 'HASH' ne ref $node) {
-                    return undef;
+                    undef $node and last;
                 }
                 $node = $node->{$step};
             }
             else {
-                return undef;
+                undef $node and last;
             }
         }
-        return $node;
+        $result = $node;
     }
 
-    return;
+    # stash walk
+    if (!$result) {
+        my $key = join '.', grep defined, $self->{subdomain}, $_[1]; #hack
+        $key =~ s/\.(\d+)\./".".($1-1)."."/gpe;
+        unless ($result = $self->stash->{$key}) {
+            my $node  = $self->stash;
+            my @steps = split /\./, $key;
+            for (my $i=0; $i<@steps; $i++) {
+                my $step = $steps[$i];
+                if ('ARRAY' eq ref $node) {
+                    if ($i<@steps && !defined $node->[$step]) {
+                        undef $node and last;
+                    }
+                    else {
+                        $node = $node->[$step];
+                    }
+                }
+                elsif ('HASH' eq ref $node) {
+                    if ($i<@steps && !defined $node->{$step}) {
+                        undef $node and last;
+                    }
+                    else {
+                        $node = $node->{$step};
+                    }
+                }
+                else {
+                    undef $node and last;
+                }
+            }
+            $result = $node;
+        }
+    }
+
+    return $result;
 }
 
 =method params
@@ -355,6 +405,7 @@ sub subdomain {
         override  => $self->override,
         lifecycle => $self->lifecycle,
         mirror    => $self->mirror,
+        stash     => $self->stash,
         domain    => $dom
     );
 
