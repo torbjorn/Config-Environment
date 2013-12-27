@@ -6,7 +6,7 @@ use 5.10.0;
 
 use Moo;
 use Hash::Flatten ();
-use Hash::Merge   ();
+use Hash::Merge::Simple ();
 
 # VERSION
 
@@ -195,7 +195,7 @@ sub load {
             }
         }
 
-        $map = Hash::Merge->new('RIGHT_PRECEDENT')->merge(
+        $map = Hash::Merge::Simple->merge(
             $map => Hash::Flatten->new->unflatten($hash)
         );
 
@@ -246,6 +246,7 @@ sub param {
             $key =~ s/(\w):(\d)/"$1.".($2+1)/gpe;
             $key =~ s/\\//g;
             unless (exists $ENV{$self->to_env_key($key)} && ! $self->override) {
+                print $key, "\n";
                 $self->load({$self->to_env_key($key) => $val});
                 $self->{registry}{env}{$key} = $val;
             }
